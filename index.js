@@ -8,6 +8,7 @@ const port = process.env.PORT || 5000;
 
 // Import routers
 const userRouter = require('./router/userRouter');
+const productRouter = require('./router/productRouter');
 
 // Middleware
 app.use(express.json());
@@ -38,8 +39,8 @@ app.get("/", (req, res) => {
 });
 
 // Use routers
-
 app.use('/users', userRouter);
+app.use('/products', productRouter);
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
