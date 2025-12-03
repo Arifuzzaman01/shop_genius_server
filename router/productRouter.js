@@ -22,10 +22,17 @@ router.post('/', async (req, res) => {
     }
 });
 
-// Get all products
+// Get all products with optional filtering by variant
 router.get('/', async (req, res) => {
     try {
-        const products = await Product.find();
+        const filter = {};
+        
+        // Filter by variant if provided
+        if (req.query.type) {
+            filter.variant = req.query.type;
+        }
+        
+        const products = await Product.find(filter);
         res.json(products);
     } catch (err) {
         res.status(500).json({ message: err.message });

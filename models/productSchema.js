@@ -62,8 +62,8 @@ const productSchema = new mongoose.Schema({
     },
     variant: {
         type: String,
-        enum: ['small', 'medium', 'large', 'xl', 'xxl', 'custom'],
-        default: 'medium'
+        enum: ['gadget', 'appliances', 'refrigerators', 'others'],
+        default: 'gadget'
     },
     featured: {
         type: Boolean,
