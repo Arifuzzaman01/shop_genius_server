@@ -14,6 +14,17 @@ const productRouter = require('./router/productRouter');
 app.use(express.json());
 app.use(cors());
 
+// Add logging for all requests (should be before route handlers)
+app.use((req, res, next) => {
+  next();
+});
+
+// Log requests to products specifically
+app.use('/products', (req, res, next) => {
+  console.log(`Products middleware: ${req.method} ${req.path}`);
+  next();
+});
+
 // MongoDB connection
 const uri = process.env.MONGODB_URI;
 
@@ -36,6 +47,12 @@ mongoose.connect(uri)
 // Routes
 app.get("/", (req, res) => {
   res.send("ShopGenius API Server is running!");
+});
+
+// Test route to check if server is working
+app.get("/test", (req, res) => {
+  console.log("Test route accessed");
+  res.json({ message: "Test route working" });
 });
 
 // Use routers
