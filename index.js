@@ -9,6 +9,7 @@ const port = process.env.PORT || 5000;
 // Import routers
 const userRouter = require('./router/userRouter');
 const productRouter = require('./router/productRouter');
+const cartRouter = require('./router/cartRouter');
 
 // Middleware
 app.use(express.json());
@@ -58,6 +59,7 @@ app.get("/test", (req, res) => {
 // Use routers
 app.use('/users', userRouter);
 app.use('/products', productRouter);
+app.use('/addToCart', cartRouter);
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
