@@ -36,6 +36,11 @@ const cartItemSchema = new mongoose.Schema({
         required: true,
         min: [0, 'Price cannot be negative']
     },
+    stock: {
+        type: Number,
+        required: true,
+        min: [0, 'Stock cannot be negative']
+    },
     productImage: {
         type: [String],
         required: true
