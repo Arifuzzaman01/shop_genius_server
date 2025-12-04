@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const cartItem = new CartItem({
-            userName: req.body.userName,
+            buyerName: req.body.buyerName,
             userEmail: req.body.userEmail,
             productName: req.body.productName,
             productId: req.body.productId,
@@ -33,8 +33,7 @@ router.post('/', async (req, res) => {
             category: req.body.category,
             discount: req.body.discount,
             price: req.body.price,
-            productImage: req.body.productImage,
-            addedAt: Date.now()
+            productImage: req.body.productImage
         });
         
         const newCartItem = await cartItem.save();
