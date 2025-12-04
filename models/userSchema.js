@@ -14,10 +14,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
+    profileURL: {
+        type: String,
+        required: true,
+        default: 'https://i.ibb.co.com/v4JSDqPK/profile.jpg'
+    },
+    
+    
 });
 
 module.exports = mongoose.model('User', userSchema);
