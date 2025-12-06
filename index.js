@@ -10,6 +10,7 @@ const port = process.env.PORT || 5000;
 const userRouter = require('./router/userRouter');
 const productRouter = require('./router/productRouter');
 const cartRouter = require('./router/cartRouter');
+const paymentRouter = require('./router/paymentRouter');
 
 // Middleware
 app.use(express.json());
@@ -60,6 +61,7 @@ app.get("/test", (req, res) => {
 app.use('/users', userRouter);
 app.use('/products', productRouter);
 app.use('/addToCart', cartRouter);
+app.use('/payments', paymentRouter);
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
