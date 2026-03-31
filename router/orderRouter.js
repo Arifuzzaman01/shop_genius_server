@@ -3,6 +3,7 @@ const router = express.Router();
 const Order = require('../models/orderSchema');
 const Product = require('../models/productSchema');
 const RestockQueue = require('../models/restockQueueSchema');
+const mongoose = require('mongoose');
 
 // Get all orders with optional filtering
 router.get('/', async (req, res) => {
