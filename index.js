@@ -11,6 +11,9 @@ const userRouter = require('./router/userRouter');
 const productRouter = require('./router/productRouter');
 const cartRouter = require('./router/cartRouter');
 const paymentRouter = require('./router/paymentRouter');
+const categoryRouter = require('./router/categoryRouter');
+const orderRouter = require('./router/orderRouter');
+const restockQueueRouter = require('./router/restockQueueRouter');
 
 // Middleware
 app.use(express.json());
@@ -62,6 +65,9 @@ app.use('/users', userRouter);
 app.use('/products', productRouter);
 app.use('/addToCart', cartRouter);
 app.use('/payments', paymentRouter);
+app.use('/api/categories', categoryRouter);
+app.use('/api/orders', orderRouter);
+app.use('/api/restock-queue', restockQueueRouter);
 
 // Graceful shutdown
 process.on("SIGINT", async () => {

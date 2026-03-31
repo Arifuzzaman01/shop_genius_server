@@ -51,14 +51,19 @@ const productSchema = new mongoose.Schema({
         required: true,
         min: [0, 'Stock cannot be negative']
     },
+    minStockThreshold: {
+        type: Number,
+        default: 5,
+        min: [0, 'Minimum stock threshold cannot be negative']
+    },
     brand: {
         type: String,
         trim: true
     },
     status: {
         type: String,
-        enum: ['sales', 'hot', 'new', 'out of stock'],
-        default: 'draft'
+        enum: ['active', 'out of stock', 'low stock', 'sales', 'hot', 'new'],
+        default: 'active'
     },
     variant: {
         type: String,

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Product = require('../models/productSchema');
+const Category = require('../models/categorySchema');
 const mongoose = require('mongoose');
 
 // Add middleware to log all product requests (this should be before route definitions)
@@ -113,6 +114,18 @@ router.post('/', async (req, res) => {
   try {
     const product = new Product(req.body);
     const newProduct = await product.save();
+    
+    // Update category product count
+    if (newProduct.category && Array.isArray(newProduct.category)) {
+      for (const categoryName of newProduct.category) {
+        await Category.findOneAndUpdate(
+          { categoryName },
+          { $inc: { productCount: 1 }, $setOnInsert: { categoryName } },
+          { upsert: true }
+        );
+      }
+    }
+    
     res.status(201).json(newProduct);
   } catch (err) {
     // Handle validation errors
@@ -165,11 +178,90 @@ router.delete('/:id', async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
+    
+    // Update category product count
+    if (product.category && Array.isArray(product.category)) {
+      for (const categoryName of product.category) {
+        await Category.findOneAndUpdate(
+          { categoryName },
+          { $inc: { productCount: -1 } }
+        );
+      }
+    }
+    
     res.json({ message: 'Product deleted successfully' });
   } catch (err) {
     if (err.name === 'CastError') {
       return res.status(400).json({ message: 'Invalid product ID' });
     }
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Update product stock
+router.put('/:id/stock', async (req, res) => {
+  try {
+    const { stock, minStockThreshold } = req.body;
+    const updateData = {};
+    
+    if (stock !== undefined) {
+      if (stock < 0) {
+        return res.status(400).json({ message: 'Stock cannot be negative' });
+      }
+      updateData.stock = stock;
+    }
+    
+    if (minStockThreshold !== undefined) {
+      if (minStockThreshold < 0) {
+        return res.status(400).json({ message: 'Minimum stock threshold cannot be negative' });
+      }
+      updateData.minStockThreshold = minStockThreshold;
+    }
+    
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // Auto-update status based on new stock level
+    if (product.stock === 0) {
+      product.status = 'out of stock';
+    } else if (product.stock < product.minStockThreshold) {
+      product.status = 'low stock';
+    } else {
+      product.status = 'active';
+    }
+    
+    await product.save();
+    
+    res.json(product);
+  } catch (err) {
+    if (err.name === 'ValidationError') {
+      const errors = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ message: 'Validation Error', errors });
+    }
+    if (err.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid product ID' });
+    }
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get products with low stock
+router.get('/filters/low-stock', async (req, res) => {
+  try {
+    const products = await Product.find({
+      stock: { $gt: 0 },
+      $expr: { $lt: ['$stock', '$minStockThreshold'] }
+    }).sort({ stock: 1 });
+    
+    res.json(products);
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
