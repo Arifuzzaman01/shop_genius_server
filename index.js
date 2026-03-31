@@ -65,9 +65,9 @@ app.use('/users', userRouter);
 app.use('/products', productRouter);
 app.use('/addToCart', cartRouter);
 app.use('/payments', paymentRouter);
-app.use('/api/categories', categoryRouter);
-app.use('/api/orders', orderRouter);
-app.use('/api/restock-queue', restockQueueRouter);
+app.use('/categories', categoryRouter);
+app.use('/orders', orderRouter);
+app.use('/restock-queue', restockQueueRouter);
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
