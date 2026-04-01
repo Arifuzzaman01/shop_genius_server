@@ -217,6 +217,19 @@ function calculatePriority(currentStock, threshold) {
     return 'low';
 }
 
+function canTransitionOrderStatus(currentStatus, nextStatus) {
+    const allowedTransitions = {
+        pending: ['confirmed', 'cancelled'],
+        confirmed: ['shipped', 'cancelled'],
+        shipped: ['delivered'],
+        delivered: [],
+        cancelled: []
+    };
+
+    if (currentStatus === nextStatus) return true;
+    return (allowedTransitions[currentStatus] || []).includes(nextStatus);
+}
+
 // Update order status
 router.put('/:id', async (req, res) => {
     try {
@@ -229,23 +242,11 @@ router.put('/:id', async (req, res) => {
         const updateData = {};
 
         if (orderStatus) {
-            const allowedTransitions = {
-                pending: ['confirmed', 'cancelled'],
-                confirmed: ['shipped', 'cancelled'],
-                shipped: ['delivered'],
-                delivered: [],
-                cancelled: []
-            };
-
-            if (orderStatus !== order.orderStatus) {
-                const nextStatuses = allowedTransitions[order.orderStatus] || [];
-                if (!nextStatuses.includes(orderStatus)) {
-                    return res.status(400).json({
-                        message: `Invalid order status transition from ${order.orderStatus} to ${orderStatus}`
-                    });
-                }
+            if (!canTransitionOrderStatus(order.orderStatus, orderStatus)) {
+                return res.status(400).json({
+                    message: `Invalid order status transition from ${order.orderStatus} to ${orderStatus}`
+                });
             }
-
             updateData.orderStatus = orderStatus;
         }
         if (paymentStatus) updateData.paymentStatus = paymentStatus;
@@ -258,6 +259,45 @@ router.put('/:id', async (req, res) => {
         );
         
         res.json(updatedOrder);
+    } catch (err) {
+        if (err.name === 'ValidationError') {
+            const errors = Object.values(err.errors).map(e => e.message);
+            return res.status(400).json({ message: 'Validation Error', errors });
+        }
+        if (err.name === 'CastError') {
+            return res.status(400).json({ message: 'Invalid order ID' });
+        }
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Update order status only
+router.patch('/:id/status', async (req, res) => {
+    try {
+        const { orderStatus } = req.body;
+
+        if (!orderStatus) {
+            return res.status(400).json({ message: 'orderStatus is required' });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        if (!canTransitionOrderStatus(order.orderStatus, orderStatus)) {
+            return res.status(400).json({
+                message: `Invalid order status transition from ${order.orderStatus} to ${orderStatus}`
+            });
+        }
+
+        order.orderStatus = orderStatus;
+        await order.save();
+
+        res.json({
+            message: 'Order status updated successfully',
+            order
+        });
     } catch (err) {
         if (err.name === 'ValidationError') {
             const errors = Object.values(err.errors).map(e => e.message);
