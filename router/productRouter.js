@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/productSchema');
 const Category = require('../models/categorySchema');
+const RestockQueue = require('../models/restockQueueSchema');
 const mongoose = require('mongoose');
 
 // Add middleware to log all product requests (this should be before route definitions)
@@ -76,22 +77,6 @@ router.get('/slug/:slug', async (req, res) => {
   }
 });
 
-// Get a specific product by ID
-router.get('/:id', async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-    res.json(product);
-  } catch (err) {
-    if (err.name === 'CastError') {
-      return res.status(400).json({ message: 'Invalid product ID' });
-    }
-    res.status(500).json({ message: err.message });
-  }
-});
-
 // Get all products with optional filtering by variant (this should be last)
 router.get('/', async (req, res) => {
   try {
@@ -105,6 +90,36 @@ router.get('/', async (req, res) => {
     const products = await Product.find(filter);
     res.json(products);
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get products with low stock
+router.get('/filters/low-stock', async (req, res) => {
+  try {
+    const products = await Product.find({
+      stock: { $gt: 0 },
+      $expr: { $lt: ['$stock', '$minStockThreshold'] }
+    }).sort({ stock: 1 });
+    
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get a specific product by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    res.json(product);
+  } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid product ID' });
+    }
     res.status(500).json({ message: err.message });
   }
 });
@@ -238,6 +253,40 @@ router.put('/:id/stock', async (req, res) => {
     }
     
     await product.save();
+
+    // Keep restock queue in sync with stock changes
+    if (product.stock < product.minStockThreshold) {
+      const existingQueueItem = await RestockQueue.findOne({
+        productId: product._id,
+        status: 'pending'
+      });
+
+      if (!existingQueueItem) {
+        let priority = 'low';
+        if (product.stock === 0) {
+          priority = 'high';
+        } else if (product.stock < (product.minStockThreshold * 0.5)) {
+          priority = 'medium';
+        }
+
+        await RestockQueue.create({
+          productId: product._id,
+          productName: product.productName,
+          currentStock: product.stock,
+          minStockThreshold: product.minStockThreshold,
+          priority
+        });
+      } else {
+        existingQueueItem.currentStock = product.stock;
+        existingQueueItem.minStockThreshold = product.minStockThreshold;
+        await existingQueueItem.save();
+      }
+    } else {
+      await RestockQueue.deleteOne({
+        productId: product._id,
+        status: 'pending'
+      });
+    }
     
     res.json(product);
   } catch (err) {
@@ -248,20 +297,6 @@ router.put('/:id/stock', async (req, res) => {
     if (err.name === 'CastError') {
       return res.status(400).json({ message: 'Invalid product ID' });
     }
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Get products with low stock
-router.get('/filters/low-stock', async (req, res) => {
-  try {
-    const products = await Product.find({
-      stock: { $gt: 0 },
-      $expr: { $lt: ['$stock', '$minStockThreshold'] }
-    }).sort({ stock: 1 });
-    
-    res.json(products);
-  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });

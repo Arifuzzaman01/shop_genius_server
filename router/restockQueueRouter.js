@@ -22,35 +22,16 @@ router.get('/', async (req, res) => {
             filter.priority = priority;
         }
         
-        // Sort by priority (high > medium > low) and then by currentStock (ascending)
+        // Sort by lowest stock first, then by priority
         const restockItems = await RestockQueue.find(filter)
             .populate('productId', 'productName brand category')
             .sort({ 
-                priority: 1, // high=0, medium=1, low=2 in MongoDB enum
-                currentStock: 1 
+                currentStock: 1,
+                priority: 1
             });
         
         res.json(restockItems);
     } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
-
-// Get single restock queue item by ID
-router.get('/:id', async (req, res) => {
-    try {
-        const restockItem = await RestockQueue.findById(req.params.id)
-            .populate('productId', 'productName brand category price stock minStockThreshold');
-        
-        if (!restockItem) {
-            return res.status(404).json({ message: 'Restock queue item not found' });
-        }
-        
-        res.json(restockItem);
-    } catch (err) {
-        if (err.name === 'CastError') {
-            return res.status(400).json({ message: 'Invalid restock queue item ID' });
-        }
         res.status(500).json({ message: err.message });
     }
 });
@@ -73,6 +54,60 @@ router.get('/priority/:priority', async (req, res) => {
         
         res.json(restockItems);
     } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Get restock queue statistics
+router.get('/stats/summary', async (req, res) => {
+    try {
+        const totalItems = await RestockQueue.countDocuments({ status: 'pending' });
+        const highPriority = await RestockQueue.countDocuments({ 
+            priority: 'high', 
+            status: 'pending' 
+        });
+        const mediumPriority = await RestockQueue.countDocuments({ 
+            priority: 'medium', 
+            status: 'pending' 
+        });
+        const lowPriority = await RestockQueue.countDocuments({ 
+            priority: 'low', 
+            status: 'pending' 
+        });
+        const restockedToday = await RestockQueue.countDocuments({
+            status: 'restocked',
+            restockedAt: {
+                $gte: new Date(new Date().setHours(0, 0, 0, 0))
+            }
+        });
+        
+        res.json({
+            totalPending: totalItems,
+            highPriority,
+            mediumPriority,
+            lowPriority,
+            restockedToday
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Get single restock queue item by ID
+router.get('/:id', async (req, res) => {
+    try {
+        const restockItem = await RestockQueue.findById(req.params.id)
+            .populate('productId', 'productName brand category price stock minStockThreshold');
+        
+        if (!restockItem) {
+            return res.status(404).json({ message: 'Restock queue item not found' });
+        }
+        
+        res.json(restockItem);
+    } catch (err) {
+        if (err.name === 'CastError') {
+            return res.status(400).json({ message: 'Invalid restock queue item ID' });
+        }
         res.status(500).json({ message: err.message });
     }
 });
@@ -233,41 +268,6 @@ router.delete('/:id', async (req, res) => {
         if (err.name === 'CastError') {
             return res.status(400).json({ message: 'Invalid restock queue item ID' });
         }
-        res.status(500).json({ message: err.message });
-    }
-});
-
-// Get restock queue statistics
-router.get('/stats/summary', async (req, res) => {
-    try {
-        const totalItems = await RestockQueue.countDocuments({ status: 'pending' });
-        const highPriority = await RestockQueue.countDocuments({ 
-            priority: 'high', 
-            status: 'pending' 
-        });
-        const mediumPriority = await RestockQueue.countDocuments({ 
-            priority: 'medium', 
-            status: 'pending' 
-        });
-        const lowPriority = await RestockQueue.countDocuments({ 
-            priority: 'low', 
-            status: 'pending' 
-        });
-        const restockedToday = await RestockQueue.countDocuments({
-            status: 'restocked',
-            restockedAt: {
-                $gte: new Date(new Date().setHours(0, 0, 0, 0))
-            }
-        });
-        
-        res.json({
-            totalPending: totalItems,
-            highPriority,
-            mediumPriority,
-            lowPriority,
-            restockedToday
-        });
-    } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });

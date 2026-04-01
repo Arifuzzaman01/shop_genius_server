@@ -45,22 +45,6 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get single order by ID
-router.get('/:id', async (req, res) => {
-    try {
-        const order = await Order.findById(req.params.id);
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
-        }
-        res.json(order);
-    } catch (err) {
-        if (err.name === 'CastError') {
-            return res.status(400).json({ message: 'Invalid order ID' });
-        }
-        res.status(500).json({ message: err.message });
-    }
-});
-
 // Get order statistics
 router.get('/stats/summary', async (req, res) => {
     try {
@@ -86,6 +70,22 @@ router.get('/stats/summary', async (req, res) => {
             totalRevenue: revenue[0]?.total || 0
         });
     } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Get single order by ID
+router.get('/:id', async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+        res.json(order);
+    } catch (err) {
+        if (err.name === 'CastError') {
+            return res.status(400).json({ message: 'Invalid order ID' });
+        }
         res.status(500).json({ message: err.message });
     }
 });
@@ -221,23 +221,43 @@ function calculatePriority(currentStock, threshold) {
 router.put('/:id', async (req, res) => {
     try {
         const { orderStatus, paymentStatus, notes } = req.body;
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
         const updateData = {};
-        
-        if (orderStatus) updateData.orderStatus = orderStatus;
+
+        if (orderStatus) {
+            const allowedTransitions = {
+                pending: ['confirmed', 'cancelled'],
+                confirmed: ['shipped', 'cancelled'],
+                shipped: ['delivered'],
+                delivered: [],
+                cancelled: []
+            };
+
+            if (orderStatus !== order.orderStatus) {
+                const nextStatuses = allowedTransitions[order.orderStatus] || [];
+                if (!nextStatuses.includes(orderStatus)) {
+                    return res.status(400).json({
+                        message: `Invalid order status transition from ${order.orderStatus} to ${orderStatus}`
+                    });
+                }
+            }
+
+            updateData.orderStatus = orderStatus;
+        }
         if (paymentStatus) updateData.paymentStatus = paymentStatus;
         if (notes !== undefined) updateData.notes = notes;
         
-        const order = await Order.findByIdAndUpdate(
+        const updatedOrder = await Order.findByIdAndUpdate(
             req.params.id,
             updateData,
             { new: true, runValidators: true }
         );
         
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
-        }
-        
-        res.json(order);
+        res.json(updatedOrder);
     } catch (err) {
         if (err.name === 'ValidationError') {
             const errors = Object.values(err.errors).map(e => e.message);
